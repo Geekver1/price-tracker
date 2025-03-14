@@ -4,7 +4,7 @@ import pandas as pd
 import streamlit as st
 
 # Load Firebase credentials
-cred = credentials.Certificate("C:\Users\zpson\OneDrive\Desktop\APNG Project\price-optimization-9a019-firebase-adminsdk-fbsvc-fc5b4ca96a.json")  # Replace with your file
+cred = credentials.Certificate(r"C:\Users\zpson\OneDrive\Desktop\APNG Project\price-optimization-9a019-firebase-adminsdk-fbsvc-fc5b4ca96a.json")  # Replace with your file
 firebase_admin.initialize_app(cred)
 db = firestore.client()
 
