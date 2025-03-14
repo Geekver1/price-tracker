@@ -1,14 +1,34 @@
-import sqlite3
+import firebase_admin
+from firebase_admin import credentials, firestore
 import pandas as pd
 import streamlit as st
-import plotly.express as px
 
-# Connect to the SQLite database
+# Load Firebase credentials
+cred = credentials.Certificate("your-firebase-credentials.json")  # Replace with your file
+firebase_admin.initialize_app(cred)
+db = firestore.client()
+
+# Function to upload data to Firestore
+def save_to_firebase(origin, destination, date, price):
+    doc_ref = db.collection("flight_prices").document(f"{origin}_{destination}_{date}")
+    doc_ref.set({
+        "origin": origin,
+        "destination": destination,
+        "date": date,
+        "price": price
+    })
+    print("✅ Data saved to Firebase!")
+
+# Function to fetch data from Firestore
 def get_data():
-    conn = sqlite3.connect("flight_prices.db")
-    df = pd.read_sql("SELECT * FROM flight_prices", conn)
-    conn.close()
-    return df
+    flights_ref = db.collection("flight_prices")
+    docs = flights_ref.stream()
+    
+    data = []
+    for doc in docs:
+        data.append(doc.to_dict())
+
+    return pd.DataFrame(data)
 
 # Streamlit UI
 st.title("Japan Domestic Flight Price Tracker ✈️")
@@ -16,29 +36,19 @@ st.title("Japan Domestic Flight Price Tracker ✈️")
 data = get_data()
 
 if not data.empty:
-    # Display raw data
     st.subheader("📊 Raw Data")
     st.dataframe(data)
-    
-    # Filter options
-    origin = st.selectbox("Select Origin Airport:", sorted(data["origin"].unique()))
-    destination = st.selectbox("Select Destination Airport:", sorted(data[data["origin"] == origin]["destination"].unique()))
-    
-    # Filter data based on selection
-    filtered_data = data[(data["origin"] == origin) & (data["destination"] == destination)]
-    
-    if not filtered_data.empty:
-        # Line Chart of Prices Over Time
-        st.subheader("📈 Price Trends Over Time")
-        fig = px.line(filtered_data, x="date", y="price", markers=True, title=f"Ticket Prices: {origin} to {destination}")
-        st.plotly_chart(fig)
-        
-        # Summary statistics
-        st.subheader("📌 Statistics")
-        st.write(filtered_data[["price"]].describe())
-    else:
-        st.warning("No data available for the selected route.")
-else:
-    st.warning("No flight price data available yet. Please wait for the next scheduled update.")
 
-st.write("Powered by Skyscanner API 🚀")
+    # Filter and visualize
+    origin = st.selectbox("Select Origin Airport:", sorted(data['origin'].unique()))
+    destination = st.selectbox("Select Destination Airport:", sorted(data[data['origin'] == origin]['destination'].unique()))
+    
+    filtered_data = data[(data['origin'] == origin) & (data['destination'] == destination)]
+
+    if not filtered_data.empty:
+        st.subheader("📈 Price Trends Over Time")
+        st.line_chart(filtered_data.set_index("date")["price"])
+    else:
+        st.warning("No data available for this route.")
+else:
+    st.warning("No flight price data available yet.")
